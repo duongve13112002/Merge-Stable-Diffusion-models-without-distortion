@@ -64,8 +64,8 @@ def weight_matching(ps: PermutationSpec, params_a, params_b, special_layers=None
           ri, ci = linear_sum_assignment(A.detach().numpy(), maximize=True)
           assert (torch.tensor(ri, device=device) == torch.arange(len(ri), device=device)).all()
           
-          oldL = torch.vdot(torch.flatten(A).float(), torch.flatten(torch.eye(n, device=device)[perm[p].long()]).float()).half()
-          newL = torch.vdot(torch.flatten(A).float(), torch.flatten(torch.eye(n, device=device)[ci, :]).float()).half()
+          oldL = torch.vdot(torch.flatten(A).float().to(device), torch.flatten(torch.eye(n, device=device)[perm[p].long()]).float()).half()
+          newL = torch.vdot(torch.flatten(A).float().to(device), torch.flatten(torch.eye(n, device=device)[ci, :]).float()).half()
           
           if newL - oldL != 0:
             sum += abs((newL-oldL).item())
@@ -105,8 +105,8 @@ def weight_matching(ps: PermutationSpec, params_a, params_b, special_layers=None
 
           assert (torch.tensor(ri, device=device) == torch.arange(len(ri), device=device)).all()
         
-          oldL = torch.vdot(torch.flatten(A), torch.flatten(torch.eye(n, device=device)[perm[p].long()]).float())
-          newL = torch.vdot(torch.flatten(A), torch.flatten(torch.eye(n, device=device)[ci, :]).float())
+          oldL = torch.vdot(torch.flatten(A).float().to(device), torch.flatten(torch.eye(n, device=device)[perm[p].long()]).float())
+          newL = torch.vdot(torch.flatten(A).float().to(device), torch.flatten(torch.eye(n, device=device)[ci, :]).float())
 
           if newL - oldL != 0:
             sum += abs((newL-oldL).item())
