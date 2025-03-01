@@ -55,7 +55,7 @@ def weight_matching(ps: PermutationSpec, params_a, params_b, special_layers=None
           A = torch.zeros((n, n), dtype=torch.float16).to(device)
           for wk, axis in ps.perm_to_axes[p]:
               w_a = params_a[wk]
-              w_b = get_permuted_param(ps, perm, wk, params_b, except_axis=axis, device)
+              w_b = get_permuted_param(ps, perm, wk, params_b, except_axis=axis, device = device)
               w_a = torch.moveaxis(w_a, axis, 0).reshape((n, -1)).to(device)
               w_b = torch.moveaxis(w_b, axis, 0).reshape((n, -1)).T.to(device)
               A += torch.matmul(w_a.half(), w_b.half())
