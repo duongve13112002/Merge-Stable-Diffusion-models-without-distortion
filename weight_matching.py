@@ -21,7 +21,7 @@ def get_permuted_param(ps: PermutationSpec, perm, k: str, params, except_axis=No
     # None indicates that there is no permutation relevant to that axis.
     if p is not None:
       if device is not None:
-        w = torch.index_select(w, axis, perm[p].int().to(device))
+        w = torch.index_select(w.to(device), axis, perm[p].int().to(device))
       else:
         w = torch.index_select(w, axis, perm[p].int())
 
