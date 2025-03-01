@@ -127,12 +127,12 @@ for x in tqdm(range(iterations), desc="Main loop", position=0):
         if key in checkpoint_dict_skip_on_merge:
             continue
         if "model" in key and key in theta_1:
-            theta_0[key] = (1 - new_alpha) * theta_0[key] + new_alpha * theta_1[key]
+            theta_0[key] = (1 - new_alpha) * theta_0[key].to(device) + new_alpha * theta_1[key].to(device)
 
     if x == 0:
         for key in tqdm(theta_1.keys(), desc="Applying theta_1 to theta_0", position=1):
             if "model" in key and key not in theta_0:
-                theta_0[key] = theta_1[key]
+                theta_0[key] = theta_1[key].to(device)
 
     #print("FINDING PERMUTATIONS")
 
@@ -147,13 +147,13 @@ for x in tqdm(range(iterations), desc="Main loop", position=0):
     # Weighted sum of the permutations
     
     for key in tqdm(special_keys, desc="Applying weighted_sum to special_keys", position=1):
-        theta_0[key] = (1 - new_alpha) * (theta_0[key]) + (new_alpha) * (theta_3[key])
+        theta_0[key] = (1 - new_alpha) * (theta_0[key].to(device)) + (new_alpha) * (theta_3[key].to(device))
 
 # fix/check bad clip
 position_id_key = 'cond_stage_model.transformer.text_model.embeddings.position_ids'
 if position_id_key in theta_0:
-    correct = torch.tensor([list(range(77))], dtype=torch.int64, device="cpu")
-    current = theta_0[position_id_key].to(torch.int64)
+    correct = torch.tensor([list(range(77))], dtype=torch.int64, device=device)
+    current = theta_0[position_id_key].to(torch.int64).to(device)
     broken = correct.ne(current)
     broken = [i for i in range(77) if broken[0][i]]
     if len(broken) != 0:
