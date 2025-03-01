@@ -6,7 +6,7 @@ from merge_PermSpec_ResNet import mlp_permutation_spec
 from PermSpec_Base import PermutationSpec
 from tqdm import tqdm
 
-def get_permuted_param(ps: PermutationSpec, perm, k: str, params, except_axis=None):
+def get_permuted_param(ps: PermutationSpec, perm, k: str, params, except_axis=None, device = 'cpu'):
   """Get parameter `k` from `params`, with the permutations applied."""
   w = params[k]
   # Printing on screen will make the process very slow. Don't leave it on in final version
@@ -20,13 +20,16 @@ def get_permuted_param(ps: PermutationSpec, perm, k: str, params, except_axis=No
 
     # None indicates that there is no permutation relevant to that axis.
     if p is not None:
-      w = torch.index_select(w, axis, perm[p].int())
+      if device is not None:
+        w = torch.index_select(w, axis, perm[p].int().to(device))
+      else:
+        w = torch.index_select(w, axis, perm[p].int())
 
   return w
 
-def apply_permutation(ps: PermutationSpec, perm, params):
+def apply_permutation(ps: PermutationSpec, perm, params, device = 'cpu'):
   """Apply a `perm` to `params`."""
-  return {k: get_permuted_param(ps, perm, k, params) for k in params.keys() if "model_" not in k}
+  return {k: get_permuted_param(ps, perm, k, params, device) for k in params.keys() if "model_" not in k}
 
 def weight_matching(ps: PermutationSpec, params_a, params_b, special_layers=None, device="cpu", max_iter=3, init_perm=None, usefp16=False):
   """Find a permutation of `params_b` to make them match `params_a`."""
@@ -52,18 +55,17 @@ def weight_matching(ps: PermutationSpec, params_a, params_b, special_layers=None
           A = torch.zeros((n, n), dtype=torch.float16).to(device)
           for wk, axis in ps.perm_to_axes[p]:
               w_a = params_a[wk]
-              w_b = get_permuted_param(ps, perm, wk, params_b, except_axis=axis)
+              w_b = get_permuted_param(ps, perm, wk, params_b, except_axis=axis, device)
               w_a = torch.moveaxis(w_a, axis, 0).reshape((n, -1)).to(device)
               w_b = torch.moveaxis(w_b, axis, 0).reshape((n, -1)).T.to(device)
               A += torch.matmul(w_a.half(), w_b.half())
 
           A = A.cpu()
           ri, ci = linear_sum_assignment(A.detach().numpy(), maximize=True)
-
-          assert (torch.tensor(ri) == torch.arange(len(ri))).all()
+          assert (torch.tensor(ri, device=device) == torch.arange(len(ri), device=device)).all()
           
-          oldL = torch.vdot(torch.flatten(A).float(), torch.flatten(torch.eye(n)[perm[p].long()]).float()).half()
-          newL = torch.vdot(torch.flatten(A).float(), torch.flatten(torch.eye(n)[ci, :]).float()).half()
+          oldL = torch.vdot(torch.flatten(A).float(), torch.flatten(torch.eye(n, device=device)[perm[p].long()]).float()).half()
+          newL = torch.vdot(torch.flatten(A).float(), torch.flatten(torch.eye(n, device=device)[ci, :]).float()).half()
           
           if newL - oldL != 0:
             sum += abs((newL-oldL).item())
@@ -91,20 +93,20 @@ def weight_matching(ps: PermutationSpec, params_a, params_b, special_layers=None
         p = p_ix
         if p in special_layers:
           n = perm_sizes[p]
-          A = torch.zeros((n, n), dtype=torch.float32).to(device="cpu")
+          A = torch.zeros((n, n), dtype=torch.float32).to(device=device)
           for wk, axis in ps.perm_to_axes[p]:
             w_a = params_a[wk]
-            w_b = get_permuted_param(ps, perm, wk, params_b, except_axis=axis)
+            w_b = get_permuted_param(ps, perm, wk, params_b, except_axis=axis, device = device)
             w_a = torch.moveaxis(w_a, axis, 0).reshape((n, -1)).to(device)
             w_b = torch.moveaxis(w_b, axis, 0).reshape((n, -1)).T.to(device)
             A += torch.matmul(w_a.float(), w_b.float()).cpu()
 
           ri, ci = linear_sum_assignment(A.detach().numpy(), maximize=True)
 
-          assert (torch.tensor(ri) == torch.arange(len(ri))).all()
+          assert (torch.tensor(ri, device=device) == torch.arange(len(ri), device=device)).all()
         
-          oldL = torch.vdot(torch.flatten(A), torch.flatten(torch.eye(n)[perm[p].long()]).float())
-          newL = torch.vdot(torch.flatten(A), torch.flatten(torch.eye(n)[ci, :]).float())
+          oldL = torch.vdot(torch.flatten(A), torch.flatten(torch.eye(n, device=device)[perm[p].long()]).float())
+          newL = torch.vdot(torch.flatten(A), torch.flatten(torch.eye(n, device=device)[ci, :]).float())
 
           if newL - oldL != 0:
             sum += abs((newL-oldL).item())
